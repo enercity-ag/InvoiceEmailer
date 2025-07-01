@@ -1,5 +1,7 @@
-import pandas as pd
-import win32com.client as win32
+import pandas as pd # For reading and manipulating excel files
+import collections # used here for defaultdict to group messages by email
+import win32com.client as win32 # Allows interaction wih Micorosoft Oulook to send emails. 
+
 
 class InvoiceEmailer:
 
@@ -9,7 +11,7 @@ class InvoiceEmailer:
         self.domain = domain
         self.sheet_basware = None
         self.sheet_workday = None
-        self.dict = {}
+        self.email_dict = {}
     
     def load_data(self):
         """ Read the excel file, which consists of two sheets,
@@ -40,21 +42,22 @@ class InvoiceEmailer:
     def dict_emails_oe(self):
         """ Dictionary between prefixes and emails. """
         for _, row in self.sheet_workday.iterrows():
-            oe_prefix = self.extract_prefix(row.get('OE', ''))
-            name = row.get('Name Gesamt', '')
-            email = self.format_email(name)
-            if email: 
-                self.dict.setdefault(oe_prefix, []).append(email)
+            oe_prefix =str(row.get('OE','')).strip()
+            if '-' not in oe_prefix and oe_prefix.isalpha(): # Only accept OEs without dashes and with letters
+                name = row.get('Name Gesamt', '')
+                email = self.format_email(name)
+                if email: 
+                    self.email_dict.setdefault(oe_prefix, []).append(email)
 
     def add_emails_to_basware(self):
         """ Adds an additional column in the basware file, which contain the email(s) 
         of the person(s) in charge of the department. """
         self.sheet_basware['OE_prefix'] = self.sheet_basware['OE'].apply(self.extract_prefix)
-        self.sheet_basware['Emails'] = self.sheet_basware['OE_prefix'].apply(lambda prefix: '; '.join(self.dict.get(prefix)))
+        self.sheet_basware['Emails'] = self.sheet_basware['OE_prefix'].apply(lambda prefix: '; '.join(self.email_dict.get(prefix, [])))
         self.sheet_basware.drop(columns = ['OE_prefix'], inplace = True)
 
     def save_new_file(self):
-        """ Create a separate basware file with the emails columsn
+        """ Create a separate basware file with the emails column
         """
         self.sheet_basware.to_excel(self.output_file, index = False)
         print(f"Updated file saved as: {self.output_file}")
@@ -67,6 +70,9 @@ class InvoiceEmailer:
         # Read the sheet of the new file
         self.sheet_basware = pd.read_excel(self.output_file, sheet_name = 0)
 
+        # Dictionary to collect messages per recipient
+        email_messages = collections.defaultdict(list)
+
         # Read emails, invoice numbers and delate days
         for _, row in self.sheet_basware.iterrows():
             email_list = row.get('Emails', '')
@@ -77,24 +83,31 @@ class InvoiceEmailer:
             if pd.isna(email_list) or pd.isna(invoice_number) or pd.isna(days_due):
                  continue
 
-            # Clean up email list
+            # Define recipients and text structure
             recipients = [email.strip() for email in email_list.split(';') if email.strip()]
+            message = f"Die Rechnung {invoice_number} ist seit {days_due} Tagen ausstehend. "
+
+            for recipient in recipients:
+                    email_messages[recipient].append(message)
+
             if not recipients:
                 continue
+            
+        # Send one email per recipient. Modify the introductory message as you wish
+        for recipient, messages in email_messages.items():
+            subject = "Offene Rechnungen - Erinnerung"
+            body = "Liebe Kolleg*innen, \n\nbitte beachtet die folgenden offenen Rechnungen: \n\n"
+            body += '\n'.join(messages)
 
-            # Compose message (modify it as you wish)
-            subject = f"Ihre Rechnung {invoice_number} ist überfällig"
-            body = f"Guten Tag, bitte beachten Sie: die Rechnung {invoice_number} ist seit {days_due} Tagen ausstehend. "
-
-            # Create email
+            # Create email. One for each recipient
             mail = outlook.CreateItem(0)
-            mail.To = '; '.join(recipients)
+            mail.To = recipient
             mail.Subject = subject
             mail.Body = body
             mail.Display() # Check before sending
             # mail.send() # Finally send
 
-
+    
 
 
 
