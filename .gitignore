@@ -1,5 +1,6 @@
 *.xlsx
 */test_data/
+*/results
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
