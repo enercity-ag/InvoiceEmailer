@@ -77,12 +77,13 @@ class InvoiceEmailer:
             oe_prefix = row.get('OE_prefix', '')
             invoice_number = row.get('Rechnungsnummer', '')
             days_due = row.get('Ausstehend seit', '')
+            supplier = row.get('Lieferantencode', '')
 
             # Skip invalid rows
             if pd.isna(oe_prefix) or pd.isna(invoice_number) or pd.isna(days_due):
                  continue
            
-            message = f"Die Rechnung {invoice_number} ist seit {days_due} Tagen ausstehend. "
+            message = f"Die Rechnung {invoice_number} mit Lieferantencode {supplier} ist seit {days_due} Tagen ausstehend. "
             oe_messages[oe_prefix].append(message)
            
         # Send one email per OE group. Modify the introductory message as you wish
