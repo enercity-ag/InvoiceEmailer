@@ -93,7 +93,7 @@ class InvoiceEmailer:
                 continue
            
             recipient_str = ';'.join(recipients)
-            subject = "Quartalsabschluss // Bearbeitung ausstehender Aufgaben im basware"
+            subject = "Quartalsabschluss // Bearbeitung ausstehender Aufgaben im Basware"
             body =  (
             "Liebe Kolleg*innen,\n\n"
             "im Sinne eines schnelleren Prozessdurchlaufes und der stringenteren Einhaltung der Abschluss-Terminpläne, "
@@ -112,6 +112,7 @@ class InvoiceEmailer:
             # Create email. One for each recipient
             mail = outlook.CreateItem(0)
             mail.To = recipient_str
+            mail.CC = "susanne.urban@enercity.de" #Add CC recipients
             mail.Subject = subject
             mail.Body = body
             mail.Display() # Check before sending
